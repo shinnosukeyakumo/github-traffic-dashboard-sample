@@ -1,0 +1,7 @@
+{
+  "app": "npx tsx bin/app.ts",
+  "context": {
+    "githubTokenParameterName": "/github-traffic/token",
+    "scheduleExpression": "cron(30 0 * * ? *)"
+  }
+}

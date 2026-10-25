@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Traffic</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border: #e2e1dc;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --accent: #2a78d6;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --bar: #86b6ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #2e2e2c;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --accent: #3987e5;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --bar: #1c5cab;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110;
+  --surface-1: #1a1a19;
+  --border: #2e2e2c;
+  --grid: #262624;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e86;
+  --accent: #3987e5;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --bar: #1c5cab;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 14px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin-bottom: 20px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+.sub { color: var(--text-muted); font-size: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+select, button {
+  font: inherit; color: var(--text-primary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+button { cursor: pointer; }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile, .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.tile .label { color: var(--text-secondary); font-size: 12px; }
+.tile .value { font-size: clamp(20px, 5.5vw, 28px); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .note { color: var(--text-muted); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.card { margin-bottom: 16px; min-width: 0; }
+.grid2 .card { margin-bottom: 0; }
+.chart { position: relative; height: 260px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 500; font-size: 12px; }
+tbody tr { cursor: pointer; }
+tbody tr:hover, tbody tr[aria-selected="true"] { background: var(--surface-0); }
+a { color: var(--accent); text-decoration: none; }
+.badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); margin-left: 6px; }
+.rank td { text-align: left; }
+.rank td.num { text-align: right; width: 64px; }
+.rank .name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.rank .bar { height: 8px; border-radius: 4px; background: var(--bar); min-width: 2px; }
+.rank tbody tr { cursor: default; }
+.empty { color: var(--text-muted); padding: 24px 0; text-align: center; }
+footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>GitHub Traffic</h1>
+      <div class="sub" id="generated">読み込み中…</div>
+    </div>
+    <div class="filters">
+      <select id="repo-filter" aria-label="リポジトリ"></select>
+      <button data-range="0" aria-pressed="true">全期間</button>
+      <button data-range="90" aria-pressed="false">90日</button>
+      <button data-range="30" aria-pressed="false">30日</button>
+    </div>
+  </header>
+
+  <section class="tiles">
+    <div class="tile"><div class="label">累計ビュー</div><div class="value" id="kpi-views">–</div><div class="note" id="kpi-views-note"></div></div>
+    <div class="tile"><div class="label">累計クローン</div><div class="value" id="kpi-clones">–</div><div class="note" id="kpi-clones-note"></div></div>
+    <div class="tile"><div class="label">追跡中のリポジトリ</div><div class="value" id="kpi-repos">–</div><div class="note" id="kpi-repos-note"></div></div>
+    <div class="tile"><div class="label">記録開始日</div><div class="value" id="kpi-since">–</div><div class="note" id="kpi-since-note"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>累計ビューの推移</h2>
+    <div class="chart"><canvas id="chart-cumulative" aria-label="累計ビューの推移"></canvas></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>日別ビュー</h2>
+      <div class="chart"><canvas id="chart-views" aria-label="日別ビュー"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>日別クローン</h2>
+      <div class="chart"><canvas id="chart-clones" aria-label="日別クローン"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>リポジトリ別（行を選ぶと絞り込み）</h2>
+    <div class="table-wrap">
+      <table id="repo-table">
+        <thead><tr><th>リポジトリ</th><th>ビュー</th><th>ユニーク*</th><th>クローン</th><th>ユニーク*</th><th>Star</th><th>記録開始</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>参照元 <span class="sub" id="ref-note"></span></h2>
+      <table class="rank" id="ref-table"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h2>人気ページ <span class="sub" id="path-note"></span></h2>
+      <table class="rank" id="path-table"><tbody></tbody></table>
+    </div>
+  </section>
+
+  <footer>
+    * ユニークは日別ユニーク数の合計。同じ人が別の日に来ると重複して数える。
+    参照元と人気ページは GitHub が返す直近 14 日の集計で、累計ではない。
+  </footer>
+</main>
+
+<script>
+const state = { data: null, repo: '', range: 0 };
+const charts = {};
+const fmt = new Intl.NumberFormat('ja-JP');
+
+function css(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function addDays(date, n) {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function selectedRepos() {
+  const repos = state.data.repos;
+  return state.repo ? repos.filter(r => r.id === state.repo) : repos;
+}
+
+// 日付ごとに合算し、欠けている日は 0 で埋める
+function dailySeries(repos) {
+  const byDate = new Map();
+  for (const repo of repos) {
+    for (const d of repo.daily) {
+      const acc = byDate.get(d.date) || { views: 0, viewsUniques: 0, clones: 0, clonesUniques: 0 };
+      for (const k of Object.keys(acc)) acc[k] += d[k];
+      byDate.set(d.date, acc);
+    }
+  }
+  if (byDate.size === 0) return [];
+  const dates = [...byDate.keys()].sort();
+  const series = [];
+  for (let date = dates[0]; date <= dates[dates.length - 1]; date = addDays(date, 1)) {
+    series.push({ date, ...(byDate.get(date) || { views: 0, viewsUniques: 0, clones: 0, clonesUniques: 0 }) });
+  }
+  return series;
+}
+
+function lineDataset(label, data, color, fill) {
+  return {
+    label, data,
+    borderColor: color,
+    backgroundColor: fill ? color + '22' : color,
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    pointHoverBorderColor: css('--surface-1'),
+    pointHoverBorderWidth: 2,
+    cubicInterpolationMode: 'monotone',
+    fill,
+  };
+}
+
+function chartOptions(showLegend) {
+  const grid = css('--grid');
+  const muted = css('--text-muted');
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: showLegend, align: 'start', labels: { color: css('--text-secondary'), boxWidth: 12, boxHeight: 2 } },
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}` } },
+    },
+    scales: {
+      x: { ticks: { color: muted, maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false }, border: { color: grid } },
+      y: { beginAtZero: true, ticks: { color: muted, precision: 0 }, grid: { color: grid }, border: { display: false } },
+    },
+  };
+}
+
+function drawChart(id, labels, datasets, showLegend) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'line',
+    data: { labels, datasets },
+    options: chartOptions(showLegend),
+  });
+}
+
+function renderCharts() {
+  const all = dailySeries(selectedRepos());
+  // 累計は全期間で積み上げてから表示範囲を切り出す
+  let running = 0;
+  const cumulative = all.map(d => (running += d.views));
+  const start = state.range ? Math.max(0, all.length - state.range) : 0;
+  const series = all.slice(start);
+  const labels = series.map(d => d.date.slice(5));
+
+  drawChart('chart-cumulative', labels, [lineDataset('累計ビュー', cumulative.slice(start), css('--series-1'), true)], false);
+  drawChart('chart-views', labels, [
+    lineDataset('ビュー', series.map(d => d.views), css('--series-1'), false),
+    lineDataset('ユニーク訪問者', series.map(d => d.viewsUniques), css('--series-2'), false),
+  ], true);
+  drawChart('chart-clones', labels, [
+    lineDataset('クローン', series.map(d => d.clones), css('--series-1'), false),
+    lineDataset('ユニーククローン', series.map(d => d.clonesUniques), css('--series-2'), false),
+  ], true);
+
+  const sum = k => series.reduce((a, d) => a + d[k], 0);
+  const label = state.range ? `直近 ${state.range} 日` : '全期間';
+  document.getElementById('kpi-views').textContent = fmt.format(sum('views'));
+  document.getElementById('kpi-views-note').textContent = `${label}・日別ユニーク合計 ${fmt.format(sum('viewsUniques'))}`;
+  document.getElementById('kpi-clones').textContent = fmt.format(sum('clones'));
+  document.getElementById('kpi-clones-note').textContent = `${label}・日別ユニーク合計 ${fmt.format(sum('clonesUniques'))}`;
+}
+
+function renderSummaryTiles() {
+  const repos = state.data.repos;
+  const active = repos.filter(r => r.active).length;
+  document.getElementById('kpi-repos').textContent = fmt.format(active);
+  document.getElementById('kpi-repos-note').textContent = `停止中 ${repos.length - active} 件を含め計 ${repos.length} 件`;
+  const first = repos.flatMap(r => r.daily.map(d => d.date)).sort()[0];
+  document.getElementById('kpi-since').textContent = first ? first.replaceAll('-', '/') : '–';
+  const firstRun = repos.map(r => r.firstSeen).filter(Boolean).sort()[0];
+  document.getElementById('kpi-since-note').textContent = firstRun ? `収集開始 ${firstRun.slice(0, 10)}（14 日遡って取得）` : '';
+}
+
+function renderTable() {
+  const tbody = document.querySelector('#repo-table tbody');
+  tbody.innerHTML = '';
+  for (const r of state.data.repos) {
+    const tr = document.createElement('tr');
+    tr.setAttribute('aria-selected', String(state.repo === r.id));
+    const name = document.createElement('td');
+    const link = document.createElement('a');
+    link.href = r.htmlUrl;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = r.fullName.split('/')[1];
+    link.addEventListener('click', e => e.stopPropagation());
+    name.append(link);
+    if (!r.active) name.insertAdjacentHTML('beforeend', '<span class="badge">停止中</span>');
+    if (r.isFork) name.insertAdjacentHTML('beforeend', '<span class="badge">fork</span>');
+    tr.append(name);
+    for (const v of [r.totals.views, r.totals.viewsUniques, r.totals.clones, r.totals.clonesUniques, r.stars]) {
+      const td = document.createElement('td');
+      td.textContent = fmt.format(v);
+      tr.append(td);
+    }
+    const since = document.createElement('td');
+    since.textContent = r.daily.length ? r.daily[0].date : '–';
+    tr.append(since);
+    tr.addEventListener('click', () => setRepo(state.repo === r.id ? '' : r.id));
+    tbody.append(tr);
+  }
+}
+
+// 全リポジトリ選択時は参照元・パスを合算する
+function renderRank(tableId, noteId, key, nameOf) {
+  const repos = selectedRepos();
+  const merged = new Map();
+  for (const r of repos) {
+    for (const item of r[key]) {
+      const name = nameOf(item, r, repos.length > 1);
+      const acc = merged.get(name) || { name, count: 0, uniques: 0, url: item.path ? `https://github.com${item.path}` : null };
+      acc.count += item.count;
+      acc.uniques += item.uniques;
+      merged.set(name, acc);
+    }
+  }
+  const rows = [...merged.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+  const max = rows[0]?.count || 1;
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td class="empty">まだデータがない</td></tr>';
+  }
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    tr.title = `${row.name}\n${fmt.format(row.count)} 回 / ユニーク ${fmt.format(row.uniques)}`;
+    const name = document.createElement('td');
+    name.className = 'name';
+    if (row.url) {
+      const a = document.createElement('a');
+      a.href = row.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = row.name;
+      name.append(a);
+    } else {
+      name.textContent = row.name;
+    }
+    const barCell = document.createElement('td');
+    barCell.style.width = '40%';
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.width = `${(row.count / max) * 100}%`;
+    barCell.append(bar);
+    const num = document.createElement('td');
+    num.className = 'num';
+    num.textContent = fmt.format(row.count);
+    tr.append(name, barCell, num);
+    tbody.append(tr);
+  }
+  const dates = repos.map(r => r.snapshotDate).filter(Boolean).sort();
+  document.getElementById(noteId).textContent = dates.length ? `${dates[dates.length - 1]} 時点の直近 14 日` : '';
+}
+
+function render() {
+  renderCharts();
+  renderTable();
+  renderRank('ref-table', 'ref-note', 'referrers', item => item.referrer);
+  renderRank('path-table', 'path-note', 'paths', (item, r, many) => many ? item.path.replace(/^\/[^/]+\//, '') : item.path.split('/').slice(3).join('/') || '/');
+}
+
+function setRepo(id) {
+  state.repo = id;
+  document.getElementById('repo-filter').value = id;
+  render();
+}
+
+async function main() {
+  const res = await fetch('data/summary.json', { cache: 'no-cache' });
+  if (!res.ok) {
+    document.getElementById('generated').textContent = 'まだ集計データがない。収集 Lambda を一度実行してほしい。';
+    return;
+  }
+  state.data = await res.json();
+  document.getElementById('generated').textContent = `最終更新 ${new Date(state.data.generatedAt).toLocaleString('ja-JP')}`;
+
+  const select = document.getElementById('repo-filter');
+  select.innerHTML = '<option value="">すべてのリポジトリ</option>' +
+    state.data.repos.map(r => `<option value="${r.id}">${r.fullName.split('/')[1]}</option>`).join('');
+  select.addEventListener('change', e => setRepo(e.target.value));
+
+  for (const btn of document.querySelectorAll('[data-range]')) {
+    btn.addEventListener('click', () => {
+      state.range = Number(btn.dataset.range);
+      for (const b of document.querySelectorAll('[data-range]')) b.setAttribute('aria-pressed', String(b === btn));
+      renderCharts();
+    });
+  }
+  // OS のテーマが切り替わったらグラフの色を取り直す
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+
+  renderSummaryTiles();
+  render();
+}
+
+main();
+</script>
+</body>
+</html>
