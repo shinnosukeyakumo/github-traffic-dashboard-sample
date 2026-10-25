@@ -40,13 +40,13 @@ CloudFront ─ CloudFront Functions (Basic 認証、資格情報は KeyValueStor
 次の URL を開くと、名前と権限が入った状態で作成画面が開きます（`target_name` は自分のユーザー名に置き換えてください）。
 
 ```
-https://github.com/settings/personal-access-tokens/new?name=github-traffic-dashboard&description=Read+traffic+of+public+repositories&target_name=<YOUR_USER>&expires_in=366&administration=read
+https://github.com/settings/personal-access-tokens/new?name=github-traffic-dashboard&description=Read+traffic+of+public+repositories&target_name=<YOUR_USER>&expires_in=365&administration=read
 ```
 
 - Repository access は **All repositories** を選びます。ここを特定リポジトリに絞ると、新しく作ったリポジトリを追跡できません
 - Repository permissions は **Administration: Read-only** だけで足ります（Metadata: Read-only は自動で付きます）。Traffic API がこの権限を要求するためです（[公式ドキュメント](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)）
 
-有効期限は最長 366 日です。切れると収集が止まるので、期限前に作り直して手順 3 をやり直してください。
+有効期限は 365 日にしています。GitHub のドキュメントでは最長 366 日ですが、実際には 365 日を超えると「exceeds the allowed limit of 365 days」で作成できませんでした（2026-10-25 時点）。切れると収集が止まるので、期限前に作り直して手順 3 をやり直してください。
 
 ### 2. デプロイ
 
