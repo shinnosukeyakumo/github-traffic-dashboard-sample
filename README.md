@@ -50,7 +50,7 @@ GitHub が返す当日の値は途中経過です。翌日以降の実行で、�
 ## 必要なもの
 
 - Node.js 20 以上
-- AWS アカウントと認証情報（CDK bootstrap 済みであること）
+- AWS アカウントと認証情報（デプロイ先のリージョンで CDK bootstrap 済みであること。既定は `ap-northeast-1`）
 - GitHub の fine-grained personal access token（手順 1 で作ります）
 
 ## セットアップ
@@ -86,10 +86,12 @@ npm install
 npx cdk deploy
 ```
 
-デプロイ先のリージョンは、AWS プロファイルの設定ではなく環境変数 `DEPLOY_REGION` で決まります。指定しなければ `ap-northeast-1` です。別のリージョンにする場合は、`DEPLOY_REGION` と `AWS_REGION` を同じ値にしてください。
+デプロイ先のリージョンは、AWS プロファイルの設定ではなく環境変数 `DEPLOY_REGION` で決まります。指定しなければ `ap-northeast-1` です。`scripts/` のスクリプトとこの README のコマンドも同じ値を見るので、プロファイルの既定リージョンが別でも、トークンなどはデプロイ先と同じリージョンに保存されます。
+
+別のリージョンにする場合は、最初に `DEPLOY_REGION` を設定し、以降の手順を同じシェルで実行してください。
 
 ```bash
-export DEPLOY_REGION=us-east-1 AWS_REGION=us-east-1
+export DEPLOY_REGION=us-east-1
 npx cdk deploy
 ```
 
@@ -127,7 +129,7 @@ op run --env-file .env.op -- ./scripts/put-github-token.sh
 パスワードは次のコマンドで確認できます。
 
 ```bash
-aws ssm get-parameter --name /github-traffic/basic-auth-password \
+aws ssm get-parameter --region "${DEPLOY_REGION:-ap-northeast-1}" --name /github-traffic/basic-auth-password \
   --with-decryption --query Parameter.Value --output text
 ```
 
@@ -136,9 +138,9 @@ aws ssm get-parameter --name /github-traffic/basic-auth-password \
 毎日の実行を待たずに一度動かすと、GitHub に残っている直近 14 日分が取り込まれます。
 
 ```bash
-FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name GithubTrafficStack \
+FUNCTION_NAME=$(aws cloudformation describe-stacks --region "${DEPLOY_REGION:-ap-northeast-1}" --stack-name GithubTrafficStack \
   --query "Stacks[0].Outputs[?OutputKey=='CollectorFunctionName'].OutputValue" --output text)
-aws lambda invoke --function-name "$FUNCTION_NAME" /dev/stdout
+aws lambda invoke --region "${DEPLOY_REGION:-ap-northeast-1}" --function-name "$FUNCTION_NAME" /dev/stdout
 ```
 
 `{"repos": 26, "failed": []}` のように、対象のリポジトリ数と失敗したリポジトリの一覧が返ります。
@@ -146,7 +148,7 @@ aws lambda invoke --function-name "$FUNCTION_NAME" /dev/stdout
 ダッシュボードの URL は、デプロイ時に出力される `DashboardUrl` です。後から確認するときは次のコマンドを使います。
 
 ```bash
-aws cloudformation describe-stacks --stack-name GithubTrafficStack \
+aws cloudformation describe-stacks --region "${DEPLOY_REGION:-ap-northeast-1}" --stack-name GithubTrafficStack \
   --query "Stacks[0].Outputs[?OutputKey=='DashboardUrl'].OutputValue" --output text
 ```
 

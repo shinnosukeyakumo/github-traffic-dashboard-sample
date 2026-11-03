@@ -5,8 +5,10 @@ set -euo pipefail
 
 : "${GITHUB_TRAFFIC_TOKEN:?GITHUB_TRAFFIC_TOKEN を設定してください}"
 PARAMETER_NAME="${TOKEN_PARAMETER_NAME:-/github-traffic/token}"
+# プロファイルの既定リージョンではなく、デプロイ先（bin/app.ts と同じ既定値）に書き込む
+REGION="${DEPLOY_REGION:-ap-northeast-1}"
 
-aws ssm put-parameter \
+aws ssm put-parameter --region "$REGION" \
   --name "$PARAMETER_NAME" \
   --type SecureString \
   --value "$GITHUB_TRAFFIC_TOKEN" \
